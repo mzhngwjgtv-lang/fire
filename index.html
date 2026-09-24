@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Экстремальная эвакуация: Физика выживания</title>
+  <style>
+    :root {
+      --bg-main: #0c0e12;
+      --bg-panel: #141820;
+      --bg-panel-hover: #1b212c;
+      --border-subtle: #242c3b;
+      --accent-danger: #ff3b30;
+      --accent-warning: #ff9500;
+      --accent-safe: #30d158;
+      --accent-cyan: #00d2ff;
+      --text-primary: #f5f7fa;
+      --text-muted: #8e9aab;
+      --glow-danger: rgba(255, 59, 48, 0.35);
+      --glow-safe: rgba(48, 209, 88, 0.35);
+      --glow-warning: rgba(255, 149, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Ambient smoke and emergency lighting effects */
+    .ambient-glow {
+      position: fixed;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(255, 69, 0, 0.12) 0%, rgba(20, 24, 32, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+      animation: pulse-ambient 4s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse-ambient {
+      0% { opacity: 0.6; transform: translateX(-50%) scale(0.95); }
+      100% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+    }
+
+    .container {
+      width: 100%;
+      max-width: 820px;
+      position: relative;
+      z-index: 10;
+      margin: auto;
+    }
+
+    /* HUD Bar */
+    .hud {
+      background: rgba(20, 24, 32, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent-warning);
+    }
+
+    .beacon {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent-danger);
+      box-shadow: 0 0 10px var(--accent-danger);
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+
+    .equipment-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(0, 210, 255, 0.1);
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      border-radius: 8px;
+      color: var(--accent-cyan);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+      transition: all 0.3s ease;
+    }
+
+    .equipment-badge.active {
+      background: rgba(48, 209, 88, 0.15);
+      border-color: rgba(48, 209, 88, 0.4);
+      color: var(--accent-safe);
+    }
+
+    /* HP Progress Bar */
+    .hp-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .hp-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .hp-val {
+      font-feature-settings: "tnum";
+      font-variant-numeric: tabular-nums;
+      transition: color 0.4s ease;
+    }
+
+    .hp-track {
+      width: 100%;
+      height: 10px;
+      background: #080a0d;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      position: relative;
+    }
+
+    .hp-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 6px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease, box-shadow 0.4s ease;
+      background: var(--accent-safe);
+      box-shadow: 0 0 12px var(--glow-safe);
+    }
+
+    /* Interactive Card */
+    .stage-card {
+      background: rgba(20, 24, 32, 0.95);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 20px;
+      padding: 28px 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      transition: all 0.35s ease;
+    }
+
+    .stage-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 149, 0, 0.12);
+      border: 1px solid rgba(255, 149, 0, 0.3);
+      color: var(--accent-warning);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 14px;
+    }
+
+    .stage-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 14px;
+      color: #ffffff;
+    }
+
+    .stage-description {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #b0bac9;
+      margin-bottom: 24px;
+      background: rgba(12, 14, 18, 0.5);
+      padding: 16px;
+      border-radius: 12px;
+      border-left: 3px solid var(--accent-warning);
+    }
+
+    /* Options Stack */
+    .options-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-btn {
+      appearance: none;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 16px 20px;
+      color: var(--text-primary);
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      transition: transform 0.15s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .option-btn:hover {
+      background-color: var(--bg-panel-hover);
+      border-color: rgba(255, 149, 0, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .option-btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-key {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--accent-warning);
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .btn-content {
+      flex: 1;
+    }
+
+    .btn-label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 2px;
+      color: #fff;
+    }
+
+    .btn-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Result / Outcome Screen Styles */
+    .outcome-box {
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .outcome-box.game-over {
+      background: rgba(255, 59, 48, 0.08);
+      border: 1px solid rgba(255, 59, 48, 0.35);
+    }
+
+    .outcome-box.victory {
+      background: rgba(48, 209, 88, 0.08);
+      border: 1px solid rgba(48, 209, 88, 0.35);
+    }
+
+    .outcome-box.partial {
+      background: rgba(255, 149, 0, 0.08);
+      border: 1px solid rgba(255, 149, 0, 0.35);
+    }
+
+    .outcome-title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .outcome-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .game-over .outcome-icon {
+      background: rgba(255, 59, 48, 0.2);
+      color: var(--accent-danger);
+      box-shadow: 0 0 20px var(--glow-danger);
+    }
+
+    .victory .outcome-icon {
+      background: rgba(48, 209, 88, 0.2);
+      color: var(--accent-safe);
+      box-shadow: 0 0 20px var(--glow-safe);
+    }
+
+    .partial .outcome-icon {
+      background: rgba(255, 149, 0, 0.2);
+      color: var(--accent-warning);
+      box-shadow: 0 0 20px var(--glow-warning);
+    }
+
+    .outcome-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .science-block {
+      background: rgba(10, 12, 16, 0.65);
+      border-radius: 12px;
+      padding: 16px;
+      border-left: 3px solid var(--accent-cyan);
+    }
+
+    .science-heading {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent-cyan);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .science-text {
+      font-size: 0.9rem;
+      line-height: 1.55;
+      color: #cbd5e1;
+    }
+
+    .rules-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rules-list li {
+      font-size: 0.88rem;
+      line-height: 1.45;
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .rules-list li::before {
+      content: "✓";
+      color: var(--accent-safe);
+      font-weight: bold;
+    }
+
+    .action-btn {
+      width: 100%;
+      padding: 16px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.15s ease, filter 0.2s ease, box-shadow 0.2s ease;
+      color: #fff;
+    }
+
+    .action-btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.1);
+    }
+
+    .btn-restart-danger {
+      background: linear-gradient(135deg, #e52d27, #b31217);
+      box-shadow: 0 6px 20px var(--glow-danger);
+    }
+
+    .btn-restart-success {
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+      box-shadow: 0 6px 20px var(--glow-safe);
+    }
+
+    .btn-restart-warning {
+      background: linear-gradient(135deg, #f2994a, #f2c94c);
+      box-shadow: 0 6px 20px var(--glow-warning);
+      color: #111;
+    }
+
+    /* Screen shake / flash animations */
+    .screen-damage {
+      animation: screen-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes screen-shake {
+      10%, 90% { transform: translate3d(-2px, 0, 0); }
+      20%, 80% { transform: translate3d(4px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+      40%, 60% { transform: translate3d(6px, 0, 0); }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.35s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 600px) {
+      .hud {
+        padding: 12px 14px;
+      }
+      .stage-card {
+        padding: 20px 16px;
+      }
+      .stage-title {
+        font-size: 1.25rem;
+      }
+      .option-btn {
+        padding: 14px;
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient background glow -->
+  <div class="ambient-glow" id="ambientLight"></div>
+
+  <main class="container" id="appContainer">
+    <!-- Top HUD Interface -->
+    <header class="hud" role="region" aria-label="Панель состояния">
+      <div class="hud-header">
+        <div class="step-indicator">
+          <span class="beacon" id="beacon"></span>
+          <span id="stepDisplay">ЭТАЖ 3 • ШАГ 1/4</span>
+        </div>
+        <div class="equipment-badge" id="equipmentBadge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 7h-7L10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2z"/>
+          </svg>
+          <span id="equipmentText">Экипировка: Нет</span>
+        </div>
+      </div>
+
+      <div class="hp-container">
+        <div class="hp-info">
+          <span>ЖИЗНЕННЫЙ ПОТЕНЦИАЛ (HP)</span>
+          <span class="hp-val" id="hpText">100%</span>
+        </div>
+        <div class="hp-track">
+          <div class="hp-fill" id="hpBar"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Dynamic Interactive Card -->
+    <section class="stage-card fade-in" id="stageContent" aria-live="polite">
+      <!-- Injected dynamically via JavaScript -->
+    </section>
+  </main>
+
+  <script>
+    // State management
+    const state = {
+      hp: 100,
+      equipment: "Нет",
+      hasFilter: false,
+      currentStep: 1
+    };
+
+    // Scenarios data strictly adhering to educational requirements
+    const scenarios = {
+      1: {
+        location: "3 ЭТАЖ • ШКОЛЬНЫЙ КАБИНЕТ",
+        title: "СИТУАЦИЯ 1: Сигнал тревоги и первичные признаки",
+        desc: "Прозвучала пожарная сирена. В коридоре наблюдается слабая серая дымка, слышны звуки эвакуации соседних классов. Ваша задача — принять немедленное первичное решение.",
+        choices: [
+          {
+            key: "1.1",
+            text: "Собрать рюкзак, надеть куртку, проверить карманы",
+            sub: "Потеря критически важного времени в очаге опасности",
+            action: () => choose1_1()
+          },
+          {
+            key: "1.2",
+            text: "Бросить вещи, быстро оценить коридор тыльной стороной ладони по дверной ручке",
+            sub: "Проверка теплопроводности двери и мгновенный старт",
+            action: () => choose1_2()
+          },
+          {
+            key: "1.3",
+            text: "Спрятаться в кабинете под партой и ждать пожарных",
+            sub: "Пассивное ожидание помощи внутри замкнутого пространства",
+            action: () => choose1_3()
+          }
+        ]
+      },
+      2: {
+        location: "3 ЭТАЖ • ОБЩИЙ РЕКРЕАЦИОННЫЙ КОРИДОР",
+        title: "СИТУАЦИЯ 2: Коридор и выбор пути перемещения",
+        desc: "Видимость стремительно падает (менее 5 метров). Появился едкий запах тлеющего пластика и изоляции. Дым поднимается к потолку, формируя плотный токсичный слой.",
+        choices: [
+          {
+            key: "2.1",
+            text: "Бежать в полный рост к центральному лифту",
+            sub: "Попытка быстро преодолеть 3 этажа вниз на механическом подъемнике",
+            action: () => choose2_1()
+          },
+          {
+            key: "2.2",
+            text: "Пригнуться к полу (зона чистого воздуха), смочить ткань/рукав водой и двигаться к лестнице",
+            sub: "Физика конвекции газов + создание первичного фильтра дыхания",
+            action: () => choose2_2()
+          },
+          {
+            key: "2.3",
+            text: "Побежать к окну в конце коридора и распахнуть его настежь",
+            sub: "Попытка проветрить задымленный коридор свежим уличным воздухом",
+            action: () => choose2_3()
+          }
+        ]
+      },
+      3: {
+        location: "2 ЭТАЖ • ЛЕСТНИЧНЫЙ МАРШ",
+        title: "СИТУАЦИЯ 3: Лестничный пролет и навигация",
+        desc: "Лестничный марш частично задымлен снизу. Дымовой поток устремляется вверх по принципу каминной тяги. Видимость ступеней ограничена.",
+        choices: [
+          {
+            key: "3.1",
+            text: "Подняться на крышу здания в надежде на вертолет спасателей",
+            sub: "Движение в верхнюю точку объекта навстречу поднимающемуся теплу",
+            action: () => choose3_1()
+          },
+          {
+            key: "3.2",
+            text: "Двигаться вниз, держась за стену, прижимаясь к ступеням, строго по указателям",
+            sub: "Движение вдоль капитальной направляющей ниже конвекционного слоя",
+            action: () => choose3_2()
+          },
+          {
+            key: "3.3",
+            text: "Спрыгнуть со 2 этажа на асфальт через окно пролета",
+            sub: "Экстренная вертикальная эвакуация без спецсредств",
+            action: () => choose3_3()
+          }
+        ]
+      },
+      4: {
+        location: "1 ЭТАЖ • ВЫХОД ВО ВНУТРЕННИЙ ДВОР",
+        title: "СИТУАЦИЯ 4: Финальный эвакуационный выход",
+        desc: "Вы на первом этаже. Массивная металлическая дверь эвакуационного выхода ощутимо горячая на ощупь. Из щелей пробиваются тонкие струйки темного дыма под давлением.",
+        choices: [
+          {
+            key: "4.1",
+            text: "Распахнуть дверь на себя резким широким рывком",
+            sub: "Быстро преодолеть последний барьер на пути к спасению",
+            action: () => choose4_1()
+          },
+          {
+            key: "4.2",
+            text: "Приоткрыть дверь на 2-3 см из-за укрытия, оценить путь во двор и выйти наружу",
+            sub: "Безопасный угол раскрытия с защитой тела дверным полотном",
+            action: () => choose4_2()
+          }
+        ]
+      }
+    };
+
+    // Failures and successes knowledge base
+    const outcomes = {
+      deathDesk: {
+        title: "ФАТАЛЬНЫЙ ТУПИК 1: Отравление угарным газом",
+        type: "game-over",
+        science: "Физика и токсикология: Угарный газ (CO) связывается с гемоглобином крови в 200–250 раз быстрее кислорода, образуя карбоксигемоглобин (HbCO). Уже при концентрации 0.1% во вдыхаемом воздухе смерть наступает в течение нескольких минут. В замкнутом классе без изоляции щелей токсичные газы быстро вытесняют кислород.",
+        reason: "Оставаться на месте и прятаться под мебелью при наличии путей эвакуации категорически запрещено. Это гарантирует гибель от асфиксии и отравления продуктами пиролиза."
+      },
+      deathElevator: {
+        title: "ФАТАЛЬНЫЙ ТУПИК 2: Ловушка в обесточенной шахте",
+        type: "game-over",
+        science: "Электротехника и аэродинамика: При срабатывании пожарной сигнализации лифты автоматически блокируются или обесточиваются. Шахта лифта превращается в вытяжную трубу (тяга за счет перепада давлений и температур), нагнетая угарный газ и пламя прямо в кабину за считанные секунды.",
+        reason: "Использование лифтов во время пожара — смертельно опасная ошибка. Лифт обесточился между 2 и 3 этажами. Шахта заполнена ядовитым дымом."
+      },
+      deathBackdraft: {
+        title: "ФАТАЛЬНЫЙ ТУПИК 3: Обратная тяга (Backdraft)",
+        type: "game-over",
+        science: "Физика горения: В задымленном коридоре огонь находился в фазе тления с дефицитом кислорода (O₂ < 14%), накопив горючие летучие углеводородные газы высокой температуры. Распахнув окно, вы мгновенно впустили поток атмосферного кислорода. Смесь сдетонировала, вызвав объемный взрыв пламени.",
+        reason: "Открытие окон в очаге пожара без средств пожаротушения провоцирует мгновенный взрывной выброс пламени прямо в лицо."
+      },
+      deathRoof: {
+        title: "ФАТАЛЬНЫЙ ТУПИК 4: Запертый тупик и токсичный купол",
+        type: "game-over",
+        science: "Тепловая конвекция (Закон Архимеда): Нагретые токсичные газы обладают меньшей плотностью и всегда устремляются вверх, скапливаясь под крышей здания с температурой свыше 300–400°C. Выход на крышу по технике безопасности всегда закрыт на замок во избежание посторонних.",
+        reason: "Дверь на крышу заперта. Вы оказались в термобарической и токсичной ловушке в самой горячей точке здания без шанса на спасение."
+      },
+      deathDoorBurst: {
+        title: "ФАТАЛЬНЫЙ ИСХОД: Огненный выброс у выхода",
+        type: "game-over",
+        science: "Термодинамика: Разогретая дверь сигнализировала о том, что прямо за ней находится очаг горения с высоким избыточным давлением. Резкий рывок двери снял перепад давлений, выбросив языки пламени и раскаленные газы непосредственно на человека.",
+        reason: "Вы распахнули дверь на себя всем корпусом. Струя пламени и тепловая волна нанесли смертельные ожоги третьей степени дыхательных путей."
+      },
+      partialVictory: {
+        title: "ЭВАКУАЦИЯ ЗАВЕРШЕНА С ТРАВМАМИ (Частичный успех)",
+        type: "partial",
+        science: "Кинематика и физиология: Высота 2 этажа составляет около 4.5–5 метров. Скорость тела при ударе об асфальт превышает 35 км/ч. Сила реакции опоры многократно превышает предел прочности костей голени и таза. Однако покидание здания спасло вас от отравления дымом.",
+        learned: [
+          "Прыжок из окон выше 1 этажа допустим только в безысходной ситуации при отсутствии иных выходов.",
+          "Влажный фильтр защитил легкие до момента прыжка.",
+          "Спасатели МЧС успели оказать первую помощь и наложить шины."
+        ]
+      },
+      triumphVictory: {
+        title: "ТРИУМФ: 100% ВЫЖИВАНИЕ ПО НОРМАТИВУ МЧС!",
+        type: "victory",
+        science: "Идеальное применение законов физики: Вы учли конвекцию (двигались в нижнем приземном слое 30-50 см от пола), защитили дыхательные пути адсорбцией влажной ткани, контролировали приток кислорода и экранировали тело полотном двери при открытии.",
+        learned: [
+          "Проверка дверей тыльной стороной ладони предотвращает спазм мышц и ожог ладоней.",
+          "Влажная ткань адсорбирует сажу и водорастворимые токсины, охлаждая вдыхаемый воздух.",
+          "Перемещение ползком/на четвереньках позволяет дышать воздухом с достаточным уровнем O₂.",
+          "Дверь открывается плавно, на 2-3 см, прикрываясь полотном как щитом от тепловой волны."
+        ]
+      }
+    };
+
+    function triggerDamageFX() {
+      const container = document.getElementById('appContainer');
+      container.classList.remove('screen-damage');
+      // Reflow trigger
+      void container.offsetWidth;
+      container.classList.add('screen-damage');
+    }
+
+    function updateHUD() {
+      const hpBar = document.getElementById('hpBar');
+      const hpText = document.getElementById('hpText');
+      const stepDisplay = document.getElementById('stepDisplay');
+      const eqText = document.getElementById('equipmentText');
+      const eqBadge = document.getElementById('equipmentBadge');
+
+      // Update HP bar visual and text
+      hpBar.style.width = `${Math.max(0, state.hp)}%`;
+      hpText.innerText = `${Math.max(0, state.hp)}%`;
+
+      // Interpolate or set color based on HP value
+      if (state.hp > 60) {
+        hpBar.style.backgroundColor = 'var(--accent-safe)';
+        hpBar.style.boxShadow = '0 0 12px var(--glow-safe)';
+        hpText.style.color = 'var(--accent-safe)';
+      } else if (state.hp > 30) {
+        hpBar.style.backgroundColor = 'var(--accent-warning)';
+        hpBar.style.boxShadow = '0 0 12px var(--glow-warning)';
+        hpText.style.color = 'var(--accent-warning)';
+      } else {
+        hpBar.style.backgroundColor = 'var(--accent-danger)';
+        hpBar.style.boxShadow = '0 0 14px var(--glow-danger)';
+        hpText.style.color = 'var(--accent-danger)';
+      }
+
+      // Step indicator
+      const floorMap = { 1: "ЭТАЖ 3", 2: "ЭТАЖ 3 • РЕКРЕАЦИЯ", 3: "ЭТАЖ 2 • ЛЕСТНИЦА", 4: "ЭТАЖ 1 • ВЫХОД" };
+      stepDisplay.innerText = `${floorMap[state.currentStep] || "ИТОГ"} • ШАГ ${Math.min(state.currentStep, 4)}/4`;
+
+      // Equipment badge
+      eqText.innerText = `Экипировка: ${state.equipment}`;
+      if (state.hasFilter) {
+        eqBadge.classList.add('active');
+      } else {
+        eqBadge.classList.remove('active');
+      }
+    }
+
+    function renderStage(stepNumber) {
+      state.currentStep = stepNumber;
+      updateHUD();
+      const stage = scenarios[stepNumber];
+      const stageCard = document.getElementById('stageContent');
+
+      let choicesHTML = stage.choices.map((c) => `
+        <button class="option-btn" onclick="executeChoice('${stepNumber}', '${c.key}')">
+          <span class="btn-key">${c.key}</span>
+          <div class="btn-content">
+            <span class="btn-label">${c.text}</span>
+            <span class="btn-sub">${c.sub}</span>
+          </div>
+        </button>
+      `).join('');
+
+      stageCard.innerHTML = `
+        <div class="stage-badge">${stage.location}</div>
+        <h2 class="stage-title">${stage.title}</h2>
+        <div class="stage-description">${stage.desc}</div>
+        <div class="options-grid">${choicesHTML}</div>
+      `;
+
+      stageCard.className = "stage-card fade-in";
+    }
+
+    function renderOutcome(outcomeKey) {
+      const data = outcomes[outcomeKey];
+      const stageCard = document.getElementById('stageContent');
+      updateHUD();
+
+      let iconGraphic = "✕";
+      let btnClass = "btn-restart-danger";
+      let btnLabel = "Начать заново";
+
+      if (data.type === "victory") {
+        iconGraphic = "✓";
+        btnClass = "btn-restart-success";
+        btnLabel = "Пройти ещё раз (Закрепить результат)";
+      } else if (data.type === "partial") {
+        iconGraphic = "⚠";
+        btnClass = "btn-restart-warning";
+        btnLabel = "Переиграть для 100% результата";
+      }
+
+      let innerInfo = "";
+      if (data.reason) {
+        innerInfo += `<p style="font-size:0.95rem; line-height:1.5; color:#fca5a5; margin-bottom:8px;"><strong>Ошибка:</strong> ${data.reason}</p>`;
+      }
+
+      if (data.science) {
+        innerInfo += `
+          <div class="science-block">
+            <div class="science-heading">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              Физико-химический и методический разбор
+            </div>
+            <div class="science-text">${data.science}</div>
+          </div>
+        `;
+      }
+
+      if (data.learned) {
+        innerInfo += `
+          <div style="margin-top:12px;">
+            <div style="font-size:12px; font-weight:700; color:var(--accent-safe); text-transform:uppercase; margin-bottom:8px;">
+              Усвоенные правила ОБЖ:
+            </div>
+            <ul class="rules-list">
+              ${data.learned.map(item => `<li>${item}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      stageCard.innerHTML = `
+        <div class="outcome-box ${data.type} fade-in">
+          <div class="outcome-title-row">
+            <div class="outcome-icon">${iconGraphic}</div>
+            <div>
+              <div class="stage-badge" style="margin-bottom:4px;">РЕЗУЛЬТАТ ЭВАКУАЦИИ</div>
+              <h2 class="outcome-title">${data.title}</h2>
+            </div>
+          </div>
+          ${innerInfo}
+          <button class="action-btn ${btnClass}" onclick="restartQuest()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2L2.5 8M2 12.5a10 10 0 0 0 18.8 4.2l.7-.7"/>
+            </svg>
+            ${btnLabel}
+          </button>
+        </div>
+      `;
+    }
+
+    function choose1_1() {
+      state.hp -= 40;
+      triggerDamageFX();
+      renderStage(2);
+    }
+
+    function choose1_2() {
+      renderStage(2);
+    }
+
+    function choose1_3() {
+      state.hp = 0;
+      triggerDamageFX();
+      renderOutcome('deathDesk');
+    }
+
+    function choose2_1() {
+      state.hp = 0;
+      triggerDamageFX();
+      renderOutcome('deathElevator');
+    }
+
+    function choose2_2() {
+      state.equipment = "Влажный фильтр дыхания";
+      state.hasFilter = true;
+      renderStage(3);
+    }
+
+    function choose2_3() {
+      state.hp = 0;
+      triggerDamageFX();
+      renderOutcome('deathBackdraft');
+    }
+
+    function choose3_1() {
+      state.hp = 0;
+      triggerDamageFX();
+      renderOutcome('deathRoof');
+    }
+
+    function choose3_2() {
+      renderStage(4);
+    }
+
+    function choose3_3() {
+      state.hp -= 60;
+      triggerDamageFX();
+      renderOutcome('partialVictory');
+    }
+
+    function choose4_1() {
+      state.hp = 0;
+      triggerDamageFX();
+      renderOutcome('deathDoorBurst');
+    }
+
+    function choose4_2() {
+      renderOutcome('triumphVictory');
+    }
+
+    function executeChoice(step, choiceKey) {
+      const stepScenarios = scenarios[step];
+      const selected = stepScenarios.choices.find(c => c.key === choiceKey);
+      if (selected && typeof selected.action === 'function') {
+        selected.action();
+      }
+    }
+
+    function restartQuest() {
+      state.hp = 100;
+      state.equipment = "Нет";
+      state.hasFilter = false;
+      state.currentStep = 1;
+      renderStage(1);
+    }
+
+    // Initialization on window load
+    window.onload = function() {
+      renderStage(1);
+    };
+  </script>
+</body>
+</html>
